@@ -20,6 +20,8 @@
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<!-- Componente web para las animaciones Lottie (check verde de éxito). -->
+<script type="module" src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.28/dist/dotlottie-wc.js"></script>
 <style>
 /* =========================================================
    PULSERAS EVENTO — mismo lenguaje visual "Espectro" del app
@@ -137,10 +139,16 @@ th{color:var(--text-dim); font-size:11.5px; font-weight:700; font-family:var(--f
 .derecho-chip{display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px; background:rgba(125,136,255,.12); border:1px solid var(--line-soft); font-size:12.5px; margin-right:6px;}
 
 /* alerta roja de pantalla completa: consumo agotado / saldo insuficiente */
-.alerta-roja{position:fixed; inset:0; z-index:9999; background:rgba(120,10,14,.96); display:flex; align-items:center; justify-content:center; text-align:center; padding:30px;}
-.alerta-roja-box{max-width:420px;}
-.alerta-roja-title{font-family:var(--f-display); font-weight:800; font-size:clamp(28px,7vw,44px); color:#fff; letter-spacing:-.01em; margin-bottom:10px;}
-.alerta-roja-sub{font-size:16px; color:#ffe0e0; margin-bottom:28px;}
+.pantalla-resultado{position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; text-align:center; padding:30px; cursor:pointer;}
+.pantalla-resultado.ok{background:rgba(10,120,60,.97);}
+.pantalla-resultado.error{background:rgba(120,10,14,.96);}
+.pantalla-resultado-box{max-width:420px;}
+.pantalla-resultado-box dotlottie-wc{width:160px; height:160px; margin:0 auto 6px; display:block;}
+.pantalla-resultado-title{font-family:var(--f-display); font-weight:800; font-size:clamp(28px,7vw,44px); color:#fff; letter-spacing:-.01em; margin-bottom:10px;}
+.pantalla-resultado-sub{font-size:16px; color:#fff; opacity:.9;}
+.btn-nfc,.btn-qr{display:inline-flex; align-items:center; gap:8px;}
+.nfc-icon{width:26px; height:26px; border:0; pointer-events:none; background:transparent; flex:0 0 auto;}
+.qr-icon{width:44px; height:44px; border:0; pointer-events:none; background:transparent; flex:0 0 auto;}
 
 #offlineBanner{position:fixed; left:0; right:0; bottom:0; z-index:9999; background:#b45309; color:#fff; font-size:13px; padding:8px 14px; text-align:center;}
 </style>
@@ -271,7 +279,15 @@ th{color:var(--text-dim); font-size:11.5px; font-weight:700; font-family:var(--f
       <div id="a-pulseras" class="admin-pane hide">
         <div class="card">
           <div class="field"><label>Importar seriales NFC (uno por línea)</label><textarea id="pulSeriales" rows="4" placeholder="04A1B2C3&#10;04A1B2C4"></textarea></div>
-          <button class="btn btn-primary" onclick="AdminApp.importarPulseras()">Importar</button>
+          <div class="row">
+            <button class="btn btn-primary" onclick="AdminApp.importarPulseras()">Importar lista</button>
+            <button class="btn btn-ghost btn-nfc" id="pulBtnNfc" onclick="AdminApp.escanearPulserasNfc()"><iframe class="nfc-icon" src="https://lottie.host/embed/8dcb14d6-6f57-452f-8eb6-577b783ae479/HKRVhrjkGy.lottie" title="NFC"></iframe><span class="btn-nfc-label">Escanear y agregar</span></button>
+          </div>
+          <div id="pulNfcContador" class="hint hide" style="margin-top:8px"></div>
+          <div class="row" style="margin-top:14px; border-top:1px solid var(--line-soft); padding-top:14px;">
+            <input type="file" id="pulExcelFile" accept=".xlsx,.xls" style="flex:1">
+            <button class="btn btn-ghost" onclick="AdminApp.importarPulserasExcel()">📄 Importar Excel</button>
+          </div>
         </div>
         <div class="card" style="margin-top:16px">
           <div class="row" style="margin-bottom:12px"><input id="pulBuscar" placeholder="Buscar serial…" style="flex:1" oninput="AdminApp.buscarPulserasDeb()"></div>
@@ -310,7 +326,7 @@ th{color:var(--text-dim); font-size:11.5px; font-weight:700; font-family:var(--f
         <label>Código de invitación (QR del correo)</label>
         <div class="row">
           <input id="entCodigo" style="flex:1" placeholder="EVT-XXXXXXXX" autocomplete="off">
-          <button class="btn btn-ghost" onclick="EntradaApp.escanearQr()">📷 Escanear QR</button>
+          <button class="btn btn-ghost btn-qr" onclick="EntradaApp.escanearQr()"><iframe class="qr-icon" src="https://lottie.host/embed/6377caed-dd2f-484e-a22d-569cb92a4c44/N1Jjms4Aev.lottie" title="QR"></iframe><span>Escanear QR</span></button>
         </div>
         <div style="margin-top:10px"><button class="btn btn-primary btn-block" onclick="EntradaApp.validarRegistro()">Validar invitación</button></div>
         <p class="hint" style="text-align:center;margin-top:10px"><button class="btn-link" onclick="EntradaApp.saltarInvitacion()">Activar pulsera sin invitación (walk-in)</button></p>
@@ -322,7 +338,7 @@ th{color:var(--text-dim); font-size:11.5px; font-weight:700; font-family:var(--f
         <label>Serial de la pulsera NFC</label>
         <div class="row">
           <input id="entSerial" style="flex:1" placeholder="Acerca la pulsera o escribe el serial" autocomplete="off">
-          <button class="btn btn-ghost" id="entBtnNfc" onclick="EntradaApp.leerNfc()">📶 Leer NFC</button>
+          <button class="btn btn-ghost btn-nfc" id="entBtnNfc" onclick="EntradaApp.leerNfc()"><iframe class="nfc-icon" src="https://lottie.host/embed/8dcb14d6-6f57-452f-8eb6-577b783ae479/HKRVhrjkGy.lottie" title="NFC"></iframe><span class="btn-nfc-label">Leer NFC</span></button>
         </div>
         <div style="margin-top:10px"><button class="btn btn-primary btn-block" onclick="EntradaApp.activarPulsera()">Activar pulsera</button></div>
       </div>
@@ -340,7 +356,7 @@ th{color:var(--text-dim); font-size:11.5px; font-weight:700; font-family:var(--f
         <label>Serial de la pulsera</label>
         <div class="row">
           <input id="comSerial" style="flex:1" placeholder="Acerca la pulsera o escribe el serial" autocomplete="off">
-          <button class="btn btn-ghost" id="comBtnNfc" onclick="ComidaApp.leerNfc()">📶 Leer NFC</button>
+          <button class="btn btn-ghost btn-nfc" id="comBtnNfc" onclick="ComidaApp.leerNfc()"><iframe class="nfc-icon" src="https://lottie.host/embed/8dcb14d6-6f57-452f-8eb6-577b783ae479/HKRVhrjkGy.lottie" title="NFC"></iframe><span class="btn-nfc-label">Leer NFC</span></button>
         </div>
         <div style="margin-top:10px"><button class="btn btn-primary btn-block" onclick="ComidaApp.consultar()">Consultar</button></div>
       </div>
@@ -358,7 +374,7 @@ th{color:var(--text-dim); font-size:11.5px; font-weight:700; font-family:var(--f
         <label>Serial de la pulsera</label>
         <div class="row">
           <input id="barSerial" style="flex:1" placeholder="Acerca la pulsera o escribe el serial" autocomplete="off">
-          <button class="btn btn-ghost" id="barBtnNfc" onclick="BarraApp.leerNfc()">📶 Leer NFC</button>
+          <button class="btn btn-ghost btn-nfc" id="barBtnNfc" onclick="BarraApp.leerNfc()"><iframe class="nfc-icon" src="https://lottie.host/embed/8dcb14d6-6f57-452f-8eb6-577b783ae479/HKRVhrjkGy.lottie" title="NFC"></iframe><span class="btn-nfc-label">Leer NFC</span></button>
         </div>
         <div style="margin-top:10px"><button class="btn btn-primary btn-block" onclick="BarraApp.consultar()">Consultar</button></div>
       </div>
@@ -372,11 +388,11 @@ th{color:var(--text-dim); font-size:11.5px; font-weight:700; font-family:var(--f
   </main>
 </div>
 
-<div id="alertaRoja" class="alerta-roja hide">
-  <div class="alerta-roja-box">
-    <div class="alerta-roja-title" id="alertaRojaTitulo">CONSUMO COMPLETO</div>
-    <div class="alerta-roja-sub" id="alertaRojaSub">Debe recargar</div>
-    <button class="btn btn-lg" onclick="AlertaRoja.cerrar()">Entendido</button>
+<div id="pantallaResultado" class="pantalla-resultado hide" onclick="PantallaResultado.ocultar()">
+  <div class="pantalla-resultado-box">
+    <dotlottie-wc id="resOkLottie" src="https://lottie.host/0725e2a3-6a0e-408f-9bce-cbee4d8c3831/l8AEdRox77.lottie" autoplay></dotlottie-wc>
+    <div class="pantalla-resultado-title" id="resTitulo"></div>
+    <div class="pantalla-resultado-sub" id="resSub"></div>
   </div>
 </div>
 
@@ -664,6 +680,32 @@ const OfflineKit = {
       if(!res.ok) return null;
       return await res.json();
     }catch(e){ return null; }
+  },
+  // Login del operador fijo de esta terminal. Con internet consulta
+  // Supabase; sin internet lo verifica el SERVIDOR LOCAL (POST
+  // /api/operador-login) contra el hash que operador_cache_refresher
+  // mantiene al día mientras hay conexión (ver local/local_server.py).
+  async loginOperador(tipo, usuario, pass){
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), this.TIMEOUT_MS);
+    try{
+      const data = await callRpc('sesion_operador_password', {p_tipo:tipo, p_usuario:usuario, p_password:pass}, controller.signal);
+      clearTimeout(timer);
+      return {offline:false, data};
+    }catch(err){
+      clearTimeout(timer);
+      if(!LocalKit.isNetworkError(err)) return {offline:false, data:null};
+      try{
+        const res = await fetch(location.origin + '/api/operador-login', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({tipo, usuario, password: pass})
+        });
+        if(!res.ok) return {offline:true, data:null};
+        const j = await res.json();
+        LocalKit.setToken(j.local_token);
+        return {offline:true, data: j.identity ? {token:null, tipo:j.identity.tipo, usuario:j.identity.usuario, evento_id:j.identity.evento_id} : null};
+      }catch(e){ return {offline:true, data:null}; }
+    }
   }
 };
 
@@ -725,10 +767,11 @@ const NfcKit = {
   cancelar(){ this._cancelarAnterior(); },
   setBtnOn(btn, on, offLabel){
     if(!btn) return;
+    const label = btn.querySelector('.btn-nfc-label') || btn;
     if(offLabel===undefined) offLabel = btn.dataset.nfcOffLabel;
-    if(!btn.dataset.nfcOffLabel) btn.dataset.nfcOffLabel = offLabel!==undefined ? offLabel : btn.textContent;
+    if(!btn.dataset.nfcOffLabel) btn.dataset.nfcOffLabel = offLabel!==undefined ? offLabel : label.textContent;
     btn.classList.toggle('btn-danger', !!on);
-    btn.textContent = on ? '🔴 Toca para apagar' : (offLabel!==undefined ? offLabel : btn.dataset.nfcOffLabel);
+    label.textContent = on ? 'Toca para apagar' : (offLabel!==undefined ? offLabel : btn.dataset.nfcOffLabel);
   }
 };
 
@@ -744,22 +787,63 @@ function toast(msg, err){
   setTimeout(()=>d.remove(), err ? 4200 : 2600);
 }
 function money(n){ return '$' + Math.round(Number(n||0)).toLocaleString('es-CO'); }
+function speak(text){
+  try{
+    if(!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'es-ES';
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
 function escapeHtml(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function catLabel(c){ return c==='cerveza'?'🍺 Cerveza':c==='coctel'?'🍸 Cóctel':c==='postre'?'🍰 Postre':(c||'—'); }
 function catLabelOperador(t){ return t==='entrada'?'🚪 Entrada':t==='comida'?'🍔 Comida':'🍹 Barra'; }
-async function callRpc(fn, params){
-  const {data, error} = await sb.rpc(fn, params || {});
+async function callRpc(fn, params, signal){
+  let q = sb.rpc(fn, params || {});
+  if(signal) q = q.abortSignal(signal);
+  const {data, error} = await q;
   if(error){ const e = new Error(error.message || 'Error'); throw e; }
   return data;
 }
-const AlertaRoja = {
-  mostrar(titulo, sub){
-    document.getElementById('alertaRojaTitulo').textContent = titulo;
-    document.getElementById('alertaRojaSub').textContent = sub || '';
-    document.getElementById('alertaRoja').classList.remove('hide');
+// Pantalla completa verde (éxito, con check animado + voz) o roja (inválido/
+// ya usado/rechazado). Se cierra sola o al tocarla.
+const PantallaResultado = {
+  _timer: null,
+  ok(titulo, sub, ms){
+    this._render('ok', titulo, sub);
+    speak(titulo);
+    this._auto(ms || 1800);
   },
-  cerrar(){ document.getElementById('alertaRoja').classList.add('hide'); }
+  error(titulo, sub, ms){
+    this._render('error', titulo, sub);
+    this._auto(ms || 2600);
+  },
+  // Alias retrocompatible con el nombre viejo (AlertaRoja.mostrar).
+  mostrar(titulo, sub){ this.error(titulo, sub); },
+  _render(tipo, titulo, sub){
+    const el = document.getElementById('pantallaResultado');
+    el.classList.remove('hide', 'ok', 'error');
+    el.classList.add(tipo);
+    document.getElementById('resTitulo').textContent = titulo;
+    document.getElementById('resSub').textContent = sub || '';
+    const lottie = document.getElementById('resOkLottie');
+    if(lottie){
+      lottie.style.display = tipo === 'ok' ? 'block' : 'none';
+      try{ tipo === 'ok' && lottie.play && lottie.play(); }catch(e){}
+    }
+  },
+  _auto(ms){
+    clearTimeout(this._timer);
+    this._timer = setTimeout(()=>this.ocultar(), ms);
+  },
+  ocultar(){
+    clearTimeout(this._timer);
+    document.getElementById('pantallaResultado').classList.add('hide');
+  },
+  cerrar(){ this.ocultar(); }
 };
+const AlertaRoja = PantallaResultado; // nombre viejo, mismo objeto
 
 const _libPromises = {};
 function loadScriptOnce(src){
@@ -774,6 +858,7 @@ function loadScriptOnce(src){
   return _libPromises[src];
 }
 const loadHtml5QrcodeLib = ()=>loadScriptOnce('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js');
+const loadExcelJsLib = ()=>loadScriptOnce('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js');
 
 /* =========================================================
    ROUTER
@@ -801,28 +886,28 @@ const SesionKit = {
 SesionKit.load();
 
 const Auth = {
-  role: null, tipoOperador: null, eventoId: null, label: null,
+  role: null, tipoOperador: null, eventoId: null, label: null, usuario: null,
   logout(){
-    this.role = null; this.tipoOperador = null; this.eventoId = null; this.label = null;
+    this.role = null; this.tipoOperador = null; this.eventoId = null; this.label = null; this.usuario = null;
     SesionKit.clear();
     try{ localStorage.removeItem(AUTH_STORAGE_KEY); }catch(e){}
     document.getElementById('btnLogout').classList.add('hide');
     document.getElementById('roleBadgeWrap').innerHTML = '';
     Router.go('landing');
   },
-  setRole(role, tipoOperador, eventoId, label, token){
-    this.role = role; this.tipoOperador = tipoOperador; this.eventoId = eventoId; this.label = label;
+  setRole(role, tipoOperador, eventoId, label, token, usuario){
+    this.role = role; this.tipoOperador = tipoOperador; this.eventoId = eventoId; this.label = label; this.usuario = usuario || null;
     SesionKit.set(token);
     document.getElementById('btnLogout').classList.remove('hide');
     document.getElementById('roleBadgeWrap').innerHTML = `<span class="role-badge">${escapeHtml(label)}</span>`;
-    try{ localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({role, tipoOperador, eventoId, label})); }catch(e){}
+    try{ localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({role, tipoOperador, eventoId, label, usuario: this.usuario})); }catch(e){}
   },
   restore(){
     let saved = null;
     try{ saved = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null'); }catch(e){}
     const token = SesionKit.load();
-    if(!saved || !token) return false;
-    this.role = saved.role; this.tipoOperador = saved.tipoOperador; this.eventoId = saved.eventoId; this.label = saved.label;
+    if(!saved || (!token && !LocalKit.token)) return false;
+    this.role = saved.role; this.tipoOperador = saved.tipoOperador; this.eventoId = saved.eventoId; this.label = saved.label; this.usuario = saved.usuario || null;
     document.getElementById('btnLogout').classList.remove('hide');
     document.getElementById('roleBadgeWrap').innerHTML = `<span class="role-badge">${escapeHtml(saved.label)}</span>`;
     if(saved.role === 'admin'){ Router.go('admin'); AdminApp.init(); return true; }
@@ -859,14 +944,13 @@ const OperadorLogin = {
     const usuario = document.getElementById('opLoginUsuario').value.trim();
     const pass = document.getElementById('opLoginPass').value;
     if(!usuario || !pass) return toast('Completa usuario y clave', true);
-    try{
-      const r = await callRpc('sesion_operador_password', {p_tipo:this.tipo, p_usuario:usuario, p_password:pass});
-      const label = catLabelOperador(r.tipo) + ' · ' + r.usuario;
-      Auth.setRole('operador', r.tipo, r.evento_id, label, r.token);
-      if(r.tipo==='entrada'){ Router.go('entrada'); EntradaApp.init(); }
-      else if(r.tipo==='comida'){ Router.go('comida'); ComidaApp.init(); }
-      else { Router.go('barra'); BarraApp.init(); }
-    }catch(e){ toast('Usuario o clave incorrecta', true); }
+    const {offline, data} = await OfflineKit.loginOperador(this.tipo, usuario, pass);
+    if(!data){ toast('Usuario o clave incorrecta', true); return; }
+    const label = catLabelOperador(data.tipo) + ' · ' + data.usuario + (offline ? ' (sin conexión)' : '');
+    Auth.setRole('operador', data.tipo, data.evento_id, label, data.token, data.usuario);
+    if(data.tipo==='entrada'){ Router.go('entrada'); EntradaApp.init(); }
+    else if(data.tipo==='comida'){ Router.go('comida'); ComidaApp.init(); }
+    else { Router.go('barra'); BarraApp.init(); }
   }
 };
 
@@ -987,6 +1071,67 @@ const AdminApp = {
       this.cargarPulseras();
     }catch(e){ toast(e.message, true); }
   },
+  // Lee un .xlsx/.xls con una columna (o varias) de seriales y los importa
+  // todos de una — cada celda con texto se toma como un serial candidato.
+  async importarPulserasExcel(){
+    const inp = document.getElementById('pulExcelFile');
+    const file = inp.files && inp.files[0];
+    if(!file) return toast('Elegí un archivo primero', true);
+    if(!this.evento) return;
+    try{
+      await loadExcelJsLib();
+      const buf = await file.arrayBuffer();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf);
+      const seriales = [];
+      wb.worksheets.forEach(ws=>{
+        ws.eachRow(row=>{
+          row.eachCell(cell=>{
+            const v = String(cell.value ?? '').trim();
+            if(v) seriales.push(v);
+          });
+        });
+      });
+      if(!seriales.length) return toast('No se encontraron seriales en el archivo', true);
+      const r = await callRpc('adm_pulseras_importar', {p_token:SesionKit.token, p_evento_id:this.evento.id, p_seriales:seriales});
+      toast('Se importaron '+r.importadas+' pulseras nuevas del Excel');
+      inp.value = '';
+      this.cargarPulseras();
+    }catch(e){ toast('No se pudo leer el archivo: '+(e.message||e), true); }
+  },
+  // Escaneo continuo por NFC: cada pulsera que se acerca al celular del
+  // admin se agrega a la base al toque, sin tener que tipear/pegar seriales.
+  // Tocar el botón de nuevo apaga el lector.
+  _nfcCancelarPulseras: null,
+  async escanearPulserasNfc(){
+    const btn = document.getElementById('pulBtnNfc');
+    const contadorEl = document.getElementById('pulNfcContador');
+    if(this._nfcCancelarPulseras){
+      this._nfcCancelarPulseras();
+      this._nfcCancelarPulseras = null;
+      NfcKit.setBtnOn(btn, false);
+      contadorEl.classList.add('hide');
+      return;
+    }
+    if(!NfcKit.supported()) return toast('Este dispositivo/navegador no soporta NFC (usa Chrome en Android)', true);
+    if(!this.evento) return;
+    let contador = 0;
+    const vistos = new Set();
+    contadorEl.classList.remove('hide');
+    contadorEl.textContent = 'Acerca cada pulsera… (0 agregadas)';
+    NfcKit.setBtnOn(btn, true, '📶 Escanear y agregar (NFC)');
+    this._nfcCancelarPulseras = await NfcKit.escanearContinuo(async (texto)=>{
+      const s = String(texto).trim().toUpperCase();
+      if(!s || vistos.has(s)) return;
+      vistos.add(s);
+      try{
+        const r = await callRpc('adm_pulseras_importar', {p_token:SesionKit.token, p_evento_id:this.evento.id, p_seriales:[s]});
+        if(r.importadas > 0){ contador++; toast('Agregada: '+s); this.cargarPulseras(); }
+        else toast(s+' ya estaba registrada');
+        contadorEl.textContent = 'Acerca cada pulsera… ('+contador+' agregadas)';
+      }catch(e){ toast(e.message || ('No se pudo agregar '+s), true); }
+    }, ()=>toast('Listo — acerca las pulseras una por una'));
+  },
   buscarPulserasDeb(){ clearTimeout(this._pulTimer); this._pulTimer = setTimeout(()=>this.cargarPulseras(), 300); },
   async cargarPulseras(){
     if(!this.evento) return;
@@ -1103,17 +1248,33 @@ const EntradaApp = {
     document.getElementById('entInvitado').textContent = 'Activación sin invitación (walk-in)';
     document.getElementById('entradaPaso1').classList.add('hide');
     document.getElementById('entradaPaso2').classList.remove('hide');
+    if(NfcKit.supported()) this.leerNfc();
   },
   async validarRegistro(){
-    const codigo = document.getElementById('entCodigo').value.trim();
+    const codigo = document.getElementById('entCodigo').value.trim().toUpperCase();
     if(!codigo) return toast('Escribe o escanea el código', true);
     try{
-      const r = await callRpc('entrada_validar_registro', {p_token:SesionKit.token, p_codigo:codigo});
-      this.registro = r;
-      document.getElementById('entInvitado').innerHTML = '✅ Invitación válida: <b>'+escapeHtml(r.nombre)+'</b>';
+      const {offline, result} = await OfflineKit.attemptWrite(
+        'entrada_validar_offline', Auth.usuario||'', Auth.eventoId, {codigo},
+        (signal)=>callRpc('entrada_validar_registro', {p_token:SesionKit.token, p_codigo:codigo}, signal),
+        {soloRed:true}
+      );
+      if(offline){
+        this.registro = {id:null};
+        document.getElementById('entInvitado').innerHTML = '📴 Código guardado sin internet — se valida solo al reconectar.';
+      }else{
+        this.registro = result;
+        document.getElementById('entInvitado').innerHTML = '✅ Invitación válida: <b>'+escapeHtml(result.nombre)+'</b>';
+        PantallaResultado.ok('QR VÁLIDO', result.nombre || '');
+      }
       document.getElementById('entradaPaso1').classList.add('hide');
       document.getElementById('entradaPaso2').classList.remove('hide');
-    }catch(e){ toast(e.message || 'Código no válido', true); }
+      // Al validar la invitación, se arranca solo la lectura NFC: el flujo
+      // queda "escanear QR -> acercar la pulsera", sin tocar otro botón.
+      if(NfcKit.supported()) this.leerNfc();
+    }catch(e){
+      PantallaResultado.error('QR NO VÁLIDO', e.message || 'Código no válido');
+    }
   },
   async escanearQr(){
     await loadHtml5QrcodeLib();
@@ -1143,15 +1304,26 @@ const EntradaApp = {
     }
   },
   async activarPulsera(){
-    const serial = document.getElementById('entSerial').value.trim();
+    const serial = document.getElementById('entSerial').value.trim().toUpperCase();
     if(!serial) return toast('Falta el serial de la pulsera', true);
+    const registroId = this.registro && this.registro.id ? this.registro.id : null;
     try{
-      await callRpc('entrada_activar_pulsera', {p_token:SesionKit.token, p_serial:serial, p_registro_id:this.registro?this.registro.id:null});
+      const {offline} = await OfflineKit.attemptWrite(
+        'entrada_activar_offline', Auth.usuario||'', Auth.eventoId, {serial, registro_id:registroId},
+        (signal)=>callRpc('entrada_activar_pulsera', {p_token:SesionKit.token, p_serial:serial, p_registro_id:registroId}, signal),
+        {soloRed:true}
+      );
       document.getElementById('entradaPaso2').classList.add('hide');
-      document.getElementById('entExitoMsg').innerHTML = 'Pulsera <b>'+escapeHtml(serial.toUpperCase())+'</b> activada.<br>Derechos: 3 cervezas, 1 cóctel, 1 postre.';
+      document.getElementById('entExitoMsg').innerHTML = offline
+        ? 'Pulsera <b>'+escapeHtml(serial)+'</b> guardada para activar cuando vuelva la conexión.'
+        : 'Pulsera <b>'+escapeHtml(serial)+'</b> activada.<br>Derechos: 3 cervezas, 1 cóctel, 1 postre.';
       document.getElementById('entradaExito').classList.remove('hide');
+      if(!offline) PantallaResultado.ok('PULSERA ACTIVADA', serial);
     }catch(e){
-      toast(e.message==='PULSERA_NO_REGISTRADA' ? 'Esta pulsera no está registrada en la base de datos' : (e.message||'No se pudo activar'), true);
+      PantallaResultado.error(
+        e.message==='PULSERA_NO_REGISTRADA' ? 'PULSERA NO REGISTRADA' : 'NO SE PUDO ACTIVAR',
+        e.message==='PULSERA_NO_REGISTRADA' ? 'Esta pulsera no está en la base de datos' : (e.message||'')
+      );
     }
   }
 };
@@ -1188,7 +1360,10 @@ const ComidaApp = {
       this.pulsera = await callRpc('pulsera_consultar', {p_token:SesionKit.token, p_serial:serial});
       this.renderPulsera();
     }catch(e){
-      toast(e.message==='PULSERA_NO_REGISTRADA' ? 'Esta pulsera no está registrada en la base de datos' : (e.message||'No se pudo consultar'), true);
+      PantallaResultado.error(
+        e.message==='PULSERA_NO_REGISTRADA' ? 'PULSERA NO REGISTRADA' : 'NO VÁLIDO',
+        e.message==='PULSERA_NO_REGISTRADA' ? 'Esta pulsera no está en la base de datos' : (e.message||'No se pudo consultar')
+      );
     }
   },
   renderPulsera(){
@@ -1208,13 +1383,24 @@ const ComidaApp = {
   },
   async entregar(p){
     try{
-      const r = await callRpc('comida_consumir', {p_token:SesionKit.token, p_serial:this.pulsera.serial, p_producto_id:p.id, p_referencia:OfflineKit.genUuid()});
-      this.pulsera.derechos = Object.assign({}, this.pulsera.derechos, {[p.categoria]: r.derecho_resultante});
-      toast('Entregado: '+p.nombre);
+      const {offline, result} = await OfflineKit.attemptWrite(
+        'comida_consumo_offline', Auth.usuario||'', Auth.eventoId, {serial:this.pulsera.serial, producto_id:p.id},
+        (signal)=>callRpc('comida_consumir', {p_token:SesionKit.token, p_serial:this.pulsera.serial, p_producto_id:p.id, p_referencia:OfflineKit.genUuid()}, signal),
+        {soloRed:true}
+      );
+      if(offline){
+        const actual = (this.pulsera.derechos && this.pulsera.derechos[p.categoria]) || 0;
+        if(actual <= 0){ PantallaResultado.error('CONSUMO COMPLETO', 'Debe recargar en taquilla'); return; }
+        this.pulsera.derechos = Object.assign({}, this.pulsera.derechos, {[p.categoria]: actual - 1});
+        toast('Entregado (guardado sin internet): '+p.nombre);
+      }else{
+        this.pulsera.derechos = Object.assign({}, this.pulsera.derechos, {[p.categoria]: result.derecho_resultante});
+        PantallaResultado.ok('COBRO VÁLIDO', p.nombre);
+      }
       this.renderPulsera();
     }catch(e){
-      if(e.message==='CONSUMO_COMPLETO'){ AlertaRoja.mostrar('CONSUMO COMPLETO', 'Debe recargar en taquilla'); }
-      else{ toast(e.message||'No se pudo entregar', true); }
+      if(e.message==='CONSUMO_COMPLETO'){ PantallaResultado.error('CONSUMO COMPLETO', 'Debe recargar en taquilla'); }
+      else{ PantallaResultado.error('NO VÁLIDO', e.message||'No se pudo entregar'); }
     }
   }
 };
@@ -1251,7 +1437,10 @@ const BarraApp = {
       this.pulsera = await callRpc('pulsera_consultar', {p_token:SesionKit.token, p_serial:serial});
       this.renderPulsera();
     }catch(e){
-      toast(e.message==='PULSERA_NO_REGISTRADA' ? 'Esta pulsera no está registrada en la base de datos' : (e.message||'No se pudo consultar'), true);
+      PantallaResultado.error(
+        e.message==='PULSERA_NO_REGISTRADA' ? 'PULSERA NO REGISTRADA' : 'NO VÁLIDO',
+        e.message==='PULSERA_NO_REGISTRADA' ? 'Esta pulsera no está en la base de datos' : (e.message||'No se pudo consultar')
+      );
     }
   },
   renderPulsera(){
@@ -1270,13 +1459,23 @@ const BarraApp = {
   },
   async cobrar(p){
     try{
-      const r = await callRpc('barra_cobrar', {p_token:SesionKit.token, p_serial:this.pulsera.serial, p_producto_id:p.id, p_cantidad:1, p_referencia:OfflineKit.genUuid()});
-      this.pulsera.saldo = r.saldo_resultante;
-      toast('Cobrado: '+p.nombre);
+      const {offline, result} = await OfflineKit.attemptWrite(
+        'barra_cobro_offline', Auth.usuario||'', Auth.eventoId, {serial:this.pulsera.serial, producto_id:p.id, cantidad:1},
+        (signal)=>callRpc('barra_cobrar', {p_token:SesionKit.token, p_serial:this.pulsera.serial, p_producto_id:p.id, p_cantidad:1, p_referencia:OfflineKit.genUuid()}, signal),
+        {soloRed:true}
+      );
+      if(offline){
+        if(this.pulsera.saldo < p.valor){ PantallaResultado.error('SALDO INSUFICIENTE', 'Debe recargar en taquilla'); return; }
+        this.pulsera.saldo -= p.valor;
+        toast('Cobrado (guardado sin internet): '+p.nombre);
+      }else{
+        this.pulsera.saldo = result.saldo_resultante;
+        PantallaResultado.ok('COBRO VÁLIDO', p.nombre+' · '+money(p.valor));
+      }
       this.renderPulsera();
     }catch(e){
-      if(e.message==='SALDO_INSUFICIENTE'){ AlertaRoja.mostrar('SALDO INSUFICIENTE', 'Debe recargar en taquilla'); }
-      else{ toast(e.message||'No se pudo cobrar', true); }
+      if(e.message==='SALDO_INSUFICIENTE'){ PantallaResultado.error('SALDO INSUFICIENTE', 'Debe recargar en taquilla'); }
+      else{ PantallaResultado.error('NO VÁLIDO', e.message||'No se pudo cobrar'); }
     }
   }
 };
@@ -1289,6 +1488,15 @@ LocalKit.detect();
   if(location.hash === '#registro'){ Router.go('registro-publico'); RegistroApp.init(); return; }
   if(!Auth.restore()) Router.go('landing');
 })();
+
+// PWA: registra el service worker para que "Agregar a pantalla de inicio" /
+// "Instalar app" instale la app de verdad (requiere HTTPS o localhost; el
+// servidor local del venue sirve por HTTP plano y ahí no se registra).
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
